@@ -61,6 +61,13 @@ ImuFilterMadgwickRos::ImuFilterMadgwickRos(const rclcpp::NodeOptions &options)
     declare_parameter("publish_debug_topics", false, descriptor);
     get_parameter("publish_debug_topics", publish_debug_topics_);
 
+    // Retrieve QoS settings
+    declare_parameter("imu_qos", "SYSTEM_DEFAULT", descriptor);
+    get_parameter("imu_qos", imu_qos_);
+    declare_parameter("debug_qos", "SYSTEM_DEFAULT", descriptor);
+    get_parameter("debug_qos", debug_qos_);
+
+
     double yaw_offset = 0.0;
     declare_parameter("yaw_offset", 0.0, descriptor);
     get_parameter("yaw_offset", yaw_offset);
@@ -184,16 +191,27 @@ ImuFilterMadgwickRos::ImuFilterMadgwickRos(const rclcpp::NodeOptions &options)
         std::bind(&ImuFilterMadgwickRos::reconfigCallback, this, _1));
 
     // **** register publishers
-    imu_publisher_ = create_publisher<sensor_msgs::msg::Imu>("imu/data", rclcpp::SensorDataQoS());
+    RCLCPP_INFO(this -> get_logger(), "IMU filtered data publisher QoS set on [ %s ]", this -> imu_qos_.c_str());
+    imu_publisher_ = create_publisher<sensor_msgs::msg::Imu>("imu/data", 
+                rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(this ->qos_string_to_qos(this ->imu_qos_)), this ->qos_string_to_qos(this ->imu_qos_))
+    );
+    
+    
     if (publish_debug_topics_)
     {
+        RCLCPP_INFO(this -> get_logger(), "IMU Rpy filtered debug publisher QoS set on [ %s ]", this -> debug_qos_.c_str());
         rpy_filtered_debug_publisher_ =
             create_publisher<geometry_msgs::msg::Vector3Stamped>(
-                "imu/rpy/filtered", rclcpp::SensorDataQoS());
+                "imu/rpy/filtered", 
+                rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(this -> qos_string_to_qos(this ->debug_qos_)), this -> qos_string_to_qos(this ->debug_qos_))
+        );
 
+        RCLCPP_INFO(this -> get_logger(), "IMU Rpy raw debug publisher QoS set on [ %s ]", this -> debug_qos_.c_str());
         rpy_raw_debug_publisher_ =
-            create_publisher<geometry_msgs::msg::Vector3Stamped>("imu/rpy/raw",
-                                                                 rclcpp::SensorDataQoS());
+            create_publisher<geometry_msgs::msg::Vector3Stamped>(
+                "imu/rpy/raw",
+                rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(this -> qos_string_to_qos(this ->debug_qos_)), this -> qos_string_to_qos(this ->debug_qos_))
+        );
     }
 
     // **** register subscribers
@@ -201,12 +219,14 @@ ImuFilterMadgwickRos::ImuFilterMadgwickRos(const rclcpp::NodeOptions &options)
     // connection callback.
     const int queue_size = 5;
     // rmw_qos_profile_t qos = rmw_qos_profile_sensor_data;
-    rclcpp::QoS qos = rclcpp::SensorDataQoS();
+    rclcpp::QoS qos = rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(this -> qos_string_to_qos(this -> imu_qos_)), this -> qos_string_to_qos(this -> imu_qos_));
     imu_subscriber_.reset(new ImuSubscriber(this, "imu/data_raw", qos));
+    RCLCPP_INFO(this -> get_logger(), "IMU raw data subscriber QoS set on [ %s ]", this -> imu_qos_.c_str());
 
     if (use_mag_)
     {
         mag_subscriber_.reset(new MagSubscriber(this, "imu/mag", qos));
+        RCLCPP_INFO(this -> get_logger(), "Magnetometer raw data subscriber QoS set on [ %s ]", this -> imu_qos_.c_str());
 
         sync_.reset(new Synchronizer(SyncPolicy(queue_size), *imu_subscriber_,
                                      *mag_subscriber_));

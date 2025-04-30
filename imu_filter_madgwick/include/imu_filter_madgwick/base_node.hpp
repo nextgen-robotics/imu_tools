@@ -2,6 +2,19 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+static const rmw_qos_profile_t rmw_qos_profile_latched =
+{
+    RMW_QOS_POLICY_HISTORY_KEEP_LAST,
+    1,
+    RMW_QOS_POLICY_RELIABILITY_RELIABLE,
+    RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL,
+    RMW_QOS_DEADLINE_DEFAULT,
+    RMW_QOS_LIFESPAN_DEFAULT,
+    RMW_QOS_POLICY_LIVELINESS_SYSTEM_DEFAULT,
+    RMW_QOS_LIVELINESS_LEASE_DURATION_DEFAULT,
+    false
+};
+
 namespace imu_filter {
 
 class BaseNode : public rclcpp::Node
@@ -84,6 +97,36 @@ class BaseNode : public rclcpp::Node
         descriptor.integer_range[0].step = int_range.step;
 
         declare_parameter(descriptor.name, default_value, descriptor);
+    }
+
+    protected:
+        const rmw_qos_profile_t qos_string_to_qos(const std::string& str)
+{
+    #ifndef DASHING
+        if (str == "UNKNOWN")
+            return rmw_qos_profile_unknown;
+    #endif
+        if (str == "SYSTEM_DEFAULT")
+            return rmw_qos_profile_system_default;
+        if (str == "DEFAULT")
+            return rmw_qos_profile_default;
+        if (str == "HID_DEFAULT")
+        {
+            rmw_qos_profile_t profile = rmw_qos_profile_default;
+            profile.depth = 100;
+            return profile;
+        }
+        if (str == "EXTRINSICS_DEFAULT")
+            return rmw_qos_profile_latched;
+        if (str == "PARAMETER_EVENTS")
+            return rmw_qos_profile_parameter_events;
+        if (str == "SERVICES_DEFAULT")
+            return rmw_qos_profile_services_default;
+        if (str == "PARAMETERS")
+            return rmw_qos_profile_parameters;
+        if (str == "SENSOR_DATA")
+            return rmw_qos_profile_sensor_data;
+        throw std::runtime_error("Unknown QoS string " + str);
     }
 };
 

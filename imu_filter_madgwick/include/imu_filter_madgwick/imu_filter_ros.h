@@ -91,6 +91,8 @@ class ImuFilterMadgwickRos : public imu_filter::BaseNode
     geometry_msgs::msg::Vector3 mag_bias_;
     double orientation_variance_;
     double yaw_offset_total_;
+    std::string imu_qos_;
+    std::string debug_qos_;
 
     // **** state variables
     std::mutex mutex_;
